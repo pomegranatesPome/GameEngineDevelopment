@@ -1,0 +1,25 @@
+#ifndef OUTLINE_DETAILEDMESH_PS_cgps_h
+#define OUTLINE_DETAILEDMESH_PS_cgps_h
+
+#include "APIAbstraction.gpu"
+#include "StandardConstants.fx"
+#include "StandardTextureResources.fx"
+#include "samplerhelper.fx"
+#include "DetailedMesh_Structs.fx"
+#include "lighthelper.fx"
+#include "shadowmaphelper.fx"
+#include "colorhelper.fx"
+
+
+float4 Outline_DetailedMesh_PS(DETAILED_MESH_SHADOWED_PS_IN pIn)
+{
+    
+    // for now return a hard coded outline 
+	//return make_float4(0.16, 0.21, 0.09, 0);
+    return make_float4(0, 0, 0, 0);
+ 
+}
+
+PS_wrapper_OUTLINE_DETAILED_MESH(Outline_DetailedMesh_PS)
+
+#endif

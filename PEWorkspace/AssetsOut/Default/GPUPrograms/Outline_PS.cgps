@@ -1,0 +1,24 @@
+#ifndef OUTLINE_PS_cgps_h
+#define OUTLINE_PS_cgps_h
+
+#include "APIAbstraction.gpu"
+#include "StandardConstants.fx"
+#include "StandardTextureResources.fx"
+#include "samplerhelper.fx"
+#include "lighthelper.fx"
+#include "StdMesh_Structs.fx"
+#include "shadowmaphelper.fx"
+#include "colorhelper.fx"
+
+float4 Outline_PS(STD_MESH_SHADOWED_PS_IN pIn)
+{
+    // for now return a hard coded outline 
+	// return make_float4(0.16, 0.21, 0.09, 0); // dark green
+    // return make_float4(0.38, 0.42, 0.22, 0);
+    return make_float4(0, 0, 0, 0);
+ 
+}
+
+PS_wrapper_OUTLINE(Outline_PS)
+
+#endif

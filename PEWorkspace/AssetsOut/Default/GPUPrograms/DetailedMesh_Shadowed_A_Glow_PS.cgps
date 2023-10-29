@@ -1,0 +1,142 @@
+#ifndef DETAILEDMESH_GLOW_PS
+#define DETAILEDMESH_GLOW_PS
+#include "APIAbstraction.gpu"
+#include "StandardConstants.fx"
+#include "StandardTextureResources.fx"
+#include "samplerhelper.fx"
+#include "DetailedMesh_Structs.fx"
+#include "lighthelper.fx"
+#include "shadowmaphelper.fx"
+#include "colorhelper.fx"
+
+float4 DetailedMesh_Shadowed_A_Glow_PS(DETAILED_MESH_SHADOWED_PS_IN pIn)
+{
+	// note: 0 alpha means no glow
+	float4 originalColor = sample2D(gDiffuseMapSampler, pIn.iTexCoord, gDiffuseMap);
+	
+	#if APIABSTRACTION_PSVITA
+	return originalColor;
+	#endif
+
+	//return make_float4(pIn.iTexCoord.xy, 0, 0);
+	//return make_float4(originalColor.xyz, 0);
+
+	float3 perPixelNormal = pIn.iNormalW;
+
+	if (xHasNrm_yHasSpec_zHasGlow_wHasDiff.x > 0.1)
+	{
+		// retrieve the normal vector from bump map
+		perPixelNormal = sample2D(gBumpMapSampler, pIn.iTexCoord, gBumpMap).xyz;
+		
+
+		//Uncompress from [0,1] to [-1,1]
+		perPixelNormal = 2.0*perPixelNormal - 1.0;
+		
+		//Build orthonormal basis
+		float3 N = normalize(pIn.iNormalW);
+		float3 T = normalize(pIn.iTangentW - dot(pIn.iTangentW, N)*N);
+		float3 B = cross(N,T);
+		
+		float3x3 TBN = make_float3x3(T, B, N);
+		
+		// Tranform from tangent space to world space
+		perPixelNormal = normalize(mul(perPixelNormal, TBN));
+	}
+
+	else
+	{
+		perPixelNormal = normalize(perPixelNormal);
+	}
+
+	SurfaceInfo defaultSurface;
+    defaultSurface.pos = pIn.iPosW;
+	defaultSurface.normal =	perPixelNormal;
+	float4 combinedColor = originalColor;
+	defaultSurface.diffuse = combinedColor;
+	defaultSurface.spec = make_float4(0.1, 0.1, 0.1, 20.0);
+	
+
+
+	/*if (xHasNrm_yHasSpec_zHasGlow_wHasDiff.y)
+	{
+		// retieve the specular color
+		float perPixelSpecular = sample(gSpecularMapSampler, iTexCoord, gSpecularMap).r; //Greyscale so pick first sample
+		perPixelSpecular *= 1.2f;//Artificially inflate specular values
+		defaultSurface.spec.r *= perPixelSpecular;
+		defaultSurface.spec.g *= perPixelSpecular;
+		defaultSurface.spec.b *= perPixelSpecular;
+	}*/
+
+	float shadowFactor = CalcShadowFactor(pIn.iProjTexCoord);
+    
+	//Combine lighting from all lights
+	float4 combinedLighting = make_float4(0, 0, 0, 0);
+	
+	combinedLighting +=	make_float4(RenderLight(defaultSurface, gLight0, xyzgEyePosW_wDoMotionBlur.xyz, 1.0), 1.0);
+	combinedLighting +=	make_float4(RenderLight(defaultSurface, gLight1, xyzgEyePosW_wDoMotionBlur.xyz, 1.0), 1.0);
+	combinedLighting +=	make_float4(RenderLight(defaultSurface, gLight2, xyzgEyePosW_wDoMotionBlur.xyz, 1.0), 1.0);
+	combinedLighting +=	make_float4(RenderLight(defaultSurface, gLight3, xyzgEyePosW_wDoMotionBlur.xyz, 1.0), 1.0);
+
+	combinedColor = combinedLighting;
+	
+	
+	// // Add saturation and luminance to
+	// float3 testHSL = rgbToHsl(combinedColor);
+
+	// // if (testHSL.y == 0) // grey
+	// // {
+	// // 	//return combinedColor;
+	// // 	//return make_float4(testHSL.z * 255, testHSL.z * 255, testHSL.z * 255, 0.0);
+	// // 	return make_float4(0, 0, 255, 0);
+	// // }
+	
+	// // this is user defined but now hardcoded: the increase for saturation value [0, 1]
+	// float increaseSaturation = 0.3;
+	// float increaseLuminance = 0.15;
+	// testHSL.y = saturate(testHSL.y + increaseSaturation) ;
+	// testHSL.z = saturate(testHSL.z + increaseLuminance) ;
+
+	
+
+	//float3 testRGB = hslToRgb(testHSL);
+
+
+// ORIGINAL CODE
+	// zero-out the glow
+	combinedColor.a = 0.0;
+	#if 1
+	if (xHasNrm_yHasSpec_zHasGlow_wHasDiff.z > 0.5)
+	{
+		// change target alpha based on glow
+		float perPixelGlow = sample2D(gGlowMapSampler, pIn.iTexCoord, gGlowMap).r;
+		if (perPixelGlow > 0.1)
+		{
+			combinedColor = lerp(combinedColor, originalColor, perPixelGlow);
+			combinedColor.a = perPixelGlow;
+		}
+	}
+	#endif
+	
+	// float4 saturatedColor = make_float4(testRGB, 0.0);
+	// #if 1
+	// if (xHasNrm_yHasSpec_zHasGlow_wHasDiff.z > 0.5)
+	// {
+	// 	// change target alpha based on glow
+	// 	float perPixelGlow = sample2D(gGlowMapSampler, pIn.iTexCoord, gGlowMap).r;
+	// 	if (perPixelGlow > 0.1)
+	// 	{
+	// 		saturatedColor = lerp(saturatedColor, originalColor, perPixelGlow);
+	// 		saturatedColor.a = perPixelGlow;
+	// 	}
+	// }
+	// #endif
+
+	return combinedColor;
+
+	//return combinedColor;
+}
+
+PS_wrapper_DETAILED_MESH_SHADOWED(DetailedMesh_Shadowed_A_Glow_PS)
+
+#endif
+

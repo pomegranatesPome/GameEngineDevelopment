@@ -1,0 +1,34 @@
+#ifndef OUTLINE_DETAILEDMESH_VS_cgvs_h
+#define OUTLINE_DETAILEDMESH_VS_cgvs_h
+
+#include "APIAbstraction.gpu"
+#include "StandardConstants.fx"
+#include "DetailedMesh_Structs.fx"
+
+
+
+// this is intended for a detailed mesh.
+DETAILED_MESH_SHADOWED_PS_IN Outline_DetailedMesh_VS(DETAILED_MESH_VS_IN vIn)
+{
+    DETAILED_MESH_SHADOWED_PS_IN vOut;
+
+    float lineWidth = 0.02f; // todo: this is hardcoded. make it customizable?
+
+    // extrude verts 
+    float3 posTemp = vIn.iPosL + lineWidth * vIn.iNormal;
+    // this was originally prepared for backface culling for the inverted hull
+    // but later i did a frontface culling so this doesnt do anything. 
+    float3 normTemp = vIn.iNormal * 1.0f;
+    vOut.iPosH = mul(make_float4(posTemp, 1.0), gWVP);
+    vOut.iNormalW =  mul(make_float4(normTemp, 0.0), gW).xyz;
+    vOut.iPosW =  mul(make_float4(vIn.iPosL, 1.0), gW).xyz;
+    vOut.iTexCoord = vIn.iTexCoord;
+    vOut.iProjTexCoord = mul(make_float4(vOut.iPosW, 1.0), gLightWVP);
+    vOut.iTangentW = vIn.iTangent;
+
+    return vOut;
+}
+
+VS_wrapper_OUTLINE_DETAILED_MESH(Outline_DetailedMesh_VS)
+
+#endif

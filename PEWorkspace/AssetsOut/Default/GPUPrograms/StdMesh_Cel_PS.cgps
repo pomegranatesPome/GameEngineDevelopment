@@ -1,0 +1,84 @@
+#ifndef StdMesh_PS_cgps_Cel_h
+#define StdMesh_PS_cgps_Cel_h
+
+#include "APIAbstraction.gpu"
+#include "StandardConstants.fx"
+#include "StandardTextureResources.fx"
+#include "samplerhelper.fx"
+#include "lighthelper.fx"
+#include "StdMesh_Structs.fx"
+#include "shadowmaphelper.fx"
+#include "colorhelper.fx"
+
+float4 StdMesh_Cel_PS(STD_MESH_SHADOWED_PS_IN pIn)
+{
+	float4 combinedColor = make_float4(0, 0, 0, 0);
+    float4 originalColor = sample2D(gDiffuseMapSampler, pIn.iTexCoord, gDiffuseMap); 
+
+    float3 normal = normalize(pIn.iNormalW);
+    
+    SurfaceInfo defaultSurface;
+    defaultSurface.pos = pIn.iPosW;
+	defaultSurface.normal =	normal;
+	defaultSurface.diffuse = originalColor;
+	defaultSurface.spec = make_float4(0.5, 0.5, 0.5, 1.0);
+	
+	float shadowFactor = CalcShadowFactor(pIn.iProjTexCoord);
+	
+	//Combine lighting from all lights
+	float4 combinedLighting = make_float4(0.0, 0.0, 0.0, 0.0);
+	
+	combinedLighting += make_float4(RenderLight_Cel(defaultSurface, gLight0, xyzgEyePosW_wDoMotionBlur.xyz, shadowFactor), 1.0);
+    combinedLighting += make_float4(RenderLight_Cel(defaultSurface, gLight1, xyzgEyePosW_wDoMotionBlur.xyz, 1.0), 1.0);
+	combinedLighting += make_float4(RenderLight_Cel(defaultSurface, gLight2, xyzgEyePosW_wDoMotionBlur.xyz, 1.0), 1.0);
+	combinedLighting += make_float4(RenderLight_Cel(defaultSurface, gLight3, xyzgEyePosW_wDoMotionBlur.xyz, 1.0), 1.0);
+    
+	combinedColor = combinedLighting;
+
+	// Ambient color 
+	combinedColor += originalColor * 0.4;
+	combinedColor.a = 0.0;
+
+	
+	float3 testHSL = rgbToHsl(combinedColor);
+
+	
+	// if (testHSL.y == 0) // grey
+	// {
+	// 	//return combinedColor;
+	// 	//return make_float4(testHSL.z * 255, testHSL.z * 255, testHSL.z * 255, 0.0);
+	// 	return make_float4(0, 0, 255, 0);
+	// }
+	
+	// increase saturation value in range [0, 1]
+	float increaseSaturation = 0.0;
+	float increaseLuminance = 0;
+	testHSL.y = saturate(testHSL.y + increaseSaturation) ;
+	testHSL.z = saturate(testHSL.z + increaseLuminance) ;
+
+	float3 testRGB = hslToRgb(testHSL);
+
+	float4 output = make_float4(testRGB.x, testRGB.y, testRGB.z, 0.0);
+	
+
+	// Add glowww
+	#if 1
+	if (xHasNrm_yHasSpec_zHasGlow_wHasDiff.z > 0.5)
+	{
+		// change target alpha based on glow
+		float perPixelGlow = sample2D(gGlowMapSampler, pIn.iTexCoord, gGlowMap).r;
+		if (perPixelGlow > 0.1)
+		{
+			output = lerp(output, originalColor, perPixelGlow);
+			output.a = perPixelGlow;
+		}
+	}
+	#endif
+
+	return output;
+//return combinedColor;
+}
+
+PS_wrapper_STD_MESH_CEL(StdMesh_Cel_PS)
+
+#endif
